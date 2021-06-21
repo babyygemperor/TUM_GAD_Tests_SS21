@@ -3,90 +3,100 @@ package tests.binomilia;
 import gad.binomilia.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class FastResult implements Result {
 
-    private final List<BinomialTreeNode> currentHeap = new ArrayList<>();
-    private final List<String> logs = new ArrayList<>();
+	private final List<List> logs;
+	private List<BinomialTreeNode> currentHeap;
 
-    private final Comparator<BinomialTreeNode> comparator = Comparator.comparing(BinomialTreeNode::rank).reversed().thenComparing(BinomialTreeNode::min);
+	private final Comparator<BinomialTreeNode> comparator = Comparator.comparing(BinomialTreeNode::rank).reversed().thenComparing(BinomialTreeNode::min);
 
-    @Override
-    public void startInsert(int value, Collection<BinomialTreeNode> heap) {
+	public FastResult() {
+		logs = new ArrayList<>();
+	}
 
-        logs.add(BinomialHeap.dot(heap.stream().sorted(comparator).toList()));
-        currentHeap.clear();
-        currentHeap.addAll(heap.stream().sorted(comparator).toList());
-    }
+	@Override
+	public void startInsert(int value, Collection<BinomialTreeNode> heap) {
 
-    @Override
-    public void startInsert(int value, BinomialTreeNode[] heap) {
-        Arrays.sort(heap, comparator);
-        logs.add(BinomialHeap.dot(heap));
-        currentHeap.clear();
-        currentHeap.addAll(Arrays.stream(heap).toList());
-    }
+		addToLogs(heap);
+		currentHeap = null;
+	}
 
-    @Override
-    public void startDeleteMin(Collection<BinomialTreeNode> heap) {
-        logs.add(BinomialHeap.dot(heap.stream().sorted(comparator).toList()));
-        currentHeap.clear();
-        currentHeap.addAll(heap.stream().sorted(comparator).toList());
-    }
+	@Override
+	public void startInsert(int value, BinomialTreeNode[] heap) {
+		startInsert(value, Arrays.asList(heap));
+	}
 
-    @Override
-    public void startDeleteMin(BinomialTreeNode[] heap) {
-        Arrays.sort(heap, comparator);
-        logs.add(BinomialHeap.dot(heap));
-        currentHeap.clear();
-        currentHeap.addAll(Arrays.stream(heap).toList());
-    }
+	@Override
+	public void startDeleteMin(Collection<BinomialTreeNode> heap) {
 
-    @Override
-    public void logIntermediateStep(Collection<BinomialTreeNode> heap) {
-        logs.add(BinomialHeap.dot(heap.stream().sorted(comparator).toList()));
-        currentHeap.clear();
-        currentHeap.addAll(heap.stream().toList());
-    }
+		addToLogs(heap);
+		currentHeap = null;
+	}
 
-    @Override
-    public void logIntermediateStep(BinomialTreeNode[] heap) {
-        Arrays.sort(heap, comparator);
-        logs.add(BinomialHeap.dot(heap));
-        currentHeap.clear();
-        currentHeap.addAll(Arrays.stream(heap).toList());
-    }
+	@Override
+	public void startDeleteMin(BinomialTreeNode[] heap) {
+		startDeleteMin(Arrays.asList(heap));
+	}
 
-    @Override
-    public void logIntermediateStep(BinomialTreeNode tree) {
-        currentHeap.clear();
-        currentHeap.add(tree);
-        logs.add(BinomialHeap.dot(currentHeap));
-    }
+	@Override
+	public void logIntermediateStep(Collection<BinomialTreeNode> heap) {
 
-    @Override
-    public void addToIntermediateStep(Collection<BinomialTreeNode> additionalHeap) {
-        logs.remove(logs.size() - 1);
-        currentHeap.addAll(additionalHeap.stream().toList());
-        logs.add(BinomialHeap.dot(currentHeap.stream().sorted(comparator).toList()));
-    }
+		currentHeap = new ArrayList<>();
+		currentHeap.addAll(heap);
+		addToLogs(heap);
+	}
 
-    @Override
-    public void addToIntermediateStep(BinomialTreeNode[] additionalHeap) {
-        logs.remove(logs.size() - 1);
-        currentHeap.addAll(Arrays.stream(additionalHeap).toList());
-        logs.add(BinomialHeap.dot(currentHeap.stream().sorted(comparator).toList()));
-    }
+	@Override
+	public void logIntermediateStep(BinomialTreeNode[] heap) {
+		logIntermediateStep(Arrays.asList(heap));
+	}
 
-    @Override
-    public void addToIntermediateStep(BinomialTreeNode tree) {
-        logs.remove(logs.size() - 1);
-        currentHeap.add(tree);
-        logs.add(BinomialHeap.dot(currentHeap.stream().sorted(comparator).toList()));
-    }
+	@Override
+	public void logIntermediateStep(BinomialTreeNode tree) {
+		logIntermediateStep(List.of(tree));
+	}
 
-    public List<String> getLogs() {
-        return logs;
-    }
+	@Override
+	public void addToIntermediateStep(Collection<BinomialTreeNode> additionalHeap) {
+		logs.remove(logs.size()-1);
+		currentHeap.addAll(additionalHeap);
+		addToLogs(currentHeap);
+	}
+
+	@Override
+	public void addToIntermediateStep(BinomialTreeNode[] additionalHeap) {
+		addToIntermediateStep(Arrays.asList(additionalHeap));
+	}
+
+	@Override
+	public void addToIntermediateStep(BinomialTreeNode tree) {
+		addToIntermediateStep(List.of(tree));
+	}
+
+	private void addToLogs(Collection<BinomialTreeNode> heap) {
+
+		logs.add(heap.stream().filter(Objects::nonNull).sorted(comparator).map(e -> treeToList(e)).toList());
+	}
+
+	public List<String> getLogs() {
+		return logs.stream().map(e -> e.stream().map(Object::toString).collect(Collectors.joining(", ", "{", "}"))).map(String::valueOf).toList();
+	}
+
+	private List treeToList(BinomialTreeNode tree) {
+
+		List res = new ArrayList<>();
+
+		int rank = tree.rank();
+
+		res.add(tree.getElement());
+
+		for (int i = 0; i < rank; i++) {
+			res.add(treeToList(tree.getChildWithRank(i)));
+		}
+
+		return res;
+	}
 
 }
